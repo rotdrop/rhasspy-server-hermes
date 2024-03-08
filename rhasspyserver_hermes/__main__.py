@@ -32,7 +32,6 @@ from paho.mqtt.matcher import MQTTMatcher
 from quart import (
     Quart,
     Response,
-    exceptions,
     jsonify,
     render_template,
     request,
@@ -40,6 +39,7 @@ from quart import (
     send_from_directory,
     websocket,
 )
+from werkzeug import exceptions
 from rhasspyprofile import Profile, human_size
 from swagger_ui import quart_api_doc
 from wsproto.utilities import LocalProtocolError
@@ -86,7 +86,9 @@ from .utils import (
 )
 
 _LOGGER = logging.getLogger("rhasspyserver_hermes")
-_LOOP = asyncio.get_event_loop()
+#_LOOP = asyncio.get_event_loop()
+_LOOP = asyncio.new_event_loop()
+asyncio.set_event_loop(_LOOP)
 
 _CPU_CAPS = {}
 if platform.machine() == "x86_64":
@@ -201,7 +203,7 @@ else:
     user_profiles_dir = Path("~/.config/rhasspy/profiles").expanduser()
 
 # Shared aiohttp client session (enable SSL)
-ssl_context = ssl.SSLContext()
+ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 if _ARGS.certfile:
     ssl_context.load_cert_chain(_ARGS.certfile, _ARGS.keyfile)
 
@@ -272,7 +274,7 @@ web_dir = Path(_ARGS.web_dir)
 assert web_dir.is_dir(), f"Missing web directory {web_dir}"
 template_dir = web_dir.parent / "templates"
 
-app = Quart("rhasspy", template_folder=str(template_dir))
+app = Quart("rhasspy", template_folder=str(template_dir), instance_path=str(web_dir))
 app.secret_key = str(uuid4())
 
 # Force jsonify to not output ASCII
@@ -312,7 +314,7 @@ if _ARGS.url_root:
 # have origin header set.
 
 
-async def _apply_websocket_cors(*args, **kwargs):
+def _apply_websocket_cors(*args, **kwargs):
     """Allow null origin."""
     pass
 
